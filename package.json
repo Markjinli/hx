@@ -1,0 +1,11 @@
+{
+  "name": "hexi-wedding-invitation",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "A serverless two-page Chinese wedding invitation for GitHub Pages.",
+  "scripts": {
+    "check": "node --check app.js && node --check invite-codec.js && node --test",
+    "test": "node --test"
+  }
+}
