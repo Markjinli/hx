@@ -120,7 +120,9 @@ test("the published surface is static, relative-path safe, and network-free", as
   assert.match(html, /id="content-page"/);
   assert.match(html, /icons\/double-happiness\.jpg/);
   assert.match(html, /class="share-crawler-image"\s+src="https:\/\/markjinli\.github\.io\/hx\/thumbs\/a\.jpg"/);
-  assert.equal(html.indexOf("<img"), html.indexOf('<img\n      class="share-crawler-image"'));
+  const firstCrawlerImage = html.match(/<img\r?\n\s+class="share-crawler-image"/);
+  assert.ok(firstCrawlerImage);
+  assert.equal(html.indexOf("<img"), firstCrawlerImage.index);
   assert.match(html, /name="shareIcon"/);
   assert.match(html, /name="shareCopy"/);
   assert.doesNotMatch(`${html}\n${app}\n${css}\n${shareOptions}`, /fetch\(|XMLHttpRequest|https?:\/\/(?!markjinli\.github\.io)/);
