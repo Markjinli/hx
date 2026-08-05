@@ -122,8 +122,11 @@ test("build emits 16 fresh and 16 backward-compatible static crawler pages", asy
         assert.ok(page.includes(`<link rel="image_src" href="${imageUrl}" />`));
         assert.ok(page.includes(`<link rel="icon" href="${imageUrl}" />`));
         assert.match(page, /<meta property="og:image:width" content="300" \/>/);
-        assert.equal(page.indexOf("<img"), page.indexOf('<img\n      class="share-crawler-image"'));
-        assert.ok(page.includes(`src="${imageUrl}"\n      width="300"`));
+        const crawlerImage = page.match(/<img\r?\n\s+class="share-crawler-image"[\s\S]*?\/>/);
+        assert.ok(crawlerImage);
+        assert.equal(page.indexOf("<img"), crawlerImage.index);
+        assert.ok(crawlerImage[0].includes(`src="${imageUrl}"`));
+        assert.ok(crawlerImage[0].includes('width="300"'));
         assert.ok(page.includes(`<img id="share-preview-image" src="../${icon.path}"`));
         assert.ok(page.includes(`<img id="welcome-share-icon" class="welcome-share-icon" src="../${icon.path}"`));
         assert.match(page, /<link rel="stylesheet" href="\.\.\/styles\.css" \/>/);
