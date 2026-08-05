@@ -57,10 +57,13 @@ https://markjinli.github.io/hx/{q-z或0-5}/#2.<base64url(七字段 UTF-8 数据)
 
 ## 当前验证
 
-- `npm run check`：通过；构建 16 个入口、Node 语法与 15 项自动测试全部通过。
+- `npm run check`：通过；构建当前与旧版共 32 个入口，Node 语法与 15 项自动测试全部通过。
 - 新协议中文/emoji 往返、CRC 标准向量、损坏/未知版本、动态与固定旧 v1 链接兼容均有测试。
 - `m.mp3` 已检查 MP3 帧、文件大小、HTML 播放属性、JS 播放逻辑和减少动态效果。
 - 功能提交：`0d0bd6b`（`feat: add music and compact invitation links`）；`hx` Pages 对该提交构建为 `built`，无构建错误。
+- 微信缩略图修复提交：`5bb9036`，通过 PR `#1` 合入主线；合并提交 `b3fecc8` 的 Pages 构建为 `built`，无构建错误。
+- 线上以 MicroMessenger UA 逐一检查 32 个页面与 4 张 `thumbs`：全部 200、类型正确、OG/首图映射正确，远端图片字节与仓库一致且含 Baseline JPEG SOF0。
+- 真实浏览器打开 `/hx/w/#2...` 后为欢迎页，选项为 `sweet-bears/two-families`，第一张静态图为对应 `thumbs/b.jpg`，请帖姓名正确解析且首图不会出现在可见区域。
 - 兼容站提交：`c0b92c0`；旧仓库 Pages 对该提交构建为 `built`，无构建错误。
 - 线上新首页、`f/` 分享页、`m.mp3` 和分享图均为 200；音乐为 `audio/mp3` 且长度 1,928,715 bytes。
 - 线上旧根页与 `sweet-bears/witness` 旧入口均为 200，并含预期新地址。真实浏览器打开带 v1 Fragment 的旧入口后落到 `/hx/f/`，Fragment 完整保留且请帖标题正确解析。
