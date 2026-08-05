@@ -37,6 +37,18 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+/* Keep one real, route-specific image as the first body image for link
+   preview crawlers that do not consume Open Graph metadata. */
+.share-crawler-image {
+  position: absolute;
+  top: 0;
+  left: -10000px;
+  width: 300px;
+  height: 300px;
+  object-fit: cover;
+  pointer-events: none;
+}
+
 body[data-view="invite"] {
   overflow: hidden;
   background: #35080f;

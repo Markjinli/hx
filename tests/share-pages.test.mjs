@@ -5,9 +5,11 @@ import { createInviteUrl, inviteFromHash } from "../invite-codec.js";
 import {
   DEFAULT_SHARE_COPY_ID,
   DEFAULT_SHARE_ICON_ID,
+  LEGACY_SHARE_ROUTE_LETTERS,
   SHARE_COPIES,
   SHARE_ICONS,
   SHARE_ROUTE_LETTERS,
+  legacyShareRoutePath,
   shareCopyById,
   shareIconById,
   shareRoutePath,
@@ -24,7 +26,7 @@ const invite = {
   message: "这段短链测试寄语不应出现在静态页面中。",
 };
 
-function jpegDimensions(buffer) {
+function jpegInfo(buffer) {
   assert.equal(buffer[0], 0xff);
   assert.equal(buffer[1], 0xd8);
   let offset = 2;
@@ -38,34 +40,43 @@ function jpegDimensions(buffer) {
     if (marker === 0xd8 || marker === 0xd9) continue;
     const length = buffer.readUInt16BE(offset);
     if ([0xc0, 0xc1, 0xc2, 0xc3, 0xc5, 0xc6, 0xc7, 0xc9, 0xca, 0xcb, 0xcd, 0xce, 0xcf].includes(marker)) {
-      return { height: buffer.readUInt16BE(offset + 3), width: buffer.readUInt16BE(offset + 5) };
+      return { height: buffer.readUInt16BE(offset + 3), marker, width: buffer.readUInt16BE(offset + 5) };
     }
     offset += length;
   }
   throw new Error("JPEG dimensions not found");
 }
 
-test("defines four safe icon choices and four preset share descriptions", () => {
+test("defines four safe icon choices, four descriptions, and two unique route generations", () => {
   assert.equal(SHARE_ICONS.length, 4);
   assert.equal(SHARE_COPIES.length, 4);
   assert.equal(new Set(SHARE_ICONS.map(({ id }) => id)).size, 4);
   assert.equal(new Set(SHARE_COPIES.map(({ id }) => id)).size, 4);
   assert.equal(shareIconById("not-an-option").id, DEFAULT_SHARE_ICON_ID);
   assert.equal(shareCopyById("not-an-option").id, DEFAULT_SHARE_COPY_ID);
+
   const routeLetters = Object.values(SHARE_ROUTE_LETTERS);
-  assert.equal(routeLetters.length, 16);
-  assert.equal(new Set(routeLetters).size, 16);
-  assert.deepEqual([...routeLetters].sort(), "abcdefghijklmnop".split(""));
-  assert.ok(routeLetters.every((letter) => /^[a-p]$/.test(letter)));
-  assert.equal(shareRoutePath("../escape", "../escape"), "a/");
+  const legacyRouteLetters = Object.values(LEGACY_SHARE_ROUTE_LETTERS);
+  assert.deepEqual(routeLetters, "qrstuvwxyz012345".split(""));
+  assert.deepEqual(legacyRouteLetters, "abcdefghijklmnop".split(""));
+  assert.equal(new Set([...routeLetters, ...legacyRouteLetters]).size, 32);
+  assert.ok(routeLetters.every((letter) => /^(?:[q-z]|[0-5])$/.test(letter)));
+  assert.equal(shareRoutePath("../escape", "../escape"), "q/");
+  assert.equal(legacyShareRoutePath("../escape", "../escape"), "a/");
 });
 
-test("all four optimized thumbnails are square, compact JPEG files", async () => {
+test("all display icons and baseline crawler thumbnails are compact JPEG files", async () => {
   for (const icon of SHARE_ICONS) {
     const image = await readFile(new URL(`../${icon.path}`, import.meta.url));
+    const thumbnail = await readFile(new URL(`../${icon.thumbnailPath}`, import.meta.url));
+    const { marker: _displayMarker, ...displayDimensions } = jpegInfo(image);
+
     assert.ok(image.length > 10_000, `${icon.id} should contain a real illustration`);
-    assert.ok(image.length < 100_000, `${icon.id} should stay small for chat crawlers`);
-    assert.deepEqual(jpegDimensions(image), { width: 512, height: 512 });
+    assert.ok(image.length < 100_000, `${icon.id} should stay compact`);
+    assert.deepEqual(displayDimensions, { width: 512, height: 512 });
+    assert.ok(thumbnail.length > 8_000, `${icon.id} crawler thumbnail should contain a real illustration`);
+    assert.ok(thumbnail.length < 100_000, `${icon.id} crawler thumbnail should stay compact`);
+    assert.deepEqual(jpegInfo(thumbnail), { width: 300, height: 300, marker: 0xc0 });
   }
 });
 
@@ -74,6 +85,7 @@ test("a selected presentation changes only the static path while personal data s
   const shareUrl = createInviteUrl(new URL(routePath, publicRoot), invite);
   const parsed = new URL(shareUrl);
 
+  assert.equal(routePath, "1/");
   assert.equal(parsed.pathname, `/hx/${routePath}`);
   assert.equal(parsed.search, "");
   assert.match(parsed.hash, /^#2\./);
@@ -81,37 +93,52 @@ test("a selected presentation changes only the static path while personal data s
   assert.deepEqual(inviteFromHash(parsed.hash), invite);
 });
 
-test("build emits all 16 route-specific static crawler pages", async () => {
+test("build emits 16 fresh and 16 backward-compatible static crawler pages", async () => {
   let count = 0;
   const generatedPaths = new Set();
+
   for (const icon of SHARE_ICONS) {
     for (const copy of SHARE_COPIES) {
-      const routePath = shareRoutePath(icon.id, copy.id);
-      assert.match(routePath, /^[a-p]\/$/);
-      assert.equal(generatedPaths.has(routePath), false, `${routePath} must be unique`);
-      generatedPaths.add(routePath);
-      const page = await readFile(new URL(`../${routePath}index.html`, import.meta.url), "utf8");
-      const routeUrl = new URL(routePath, publicRoot).href;
-      const imageUrl = new URL(icon.path, publicRoot).href;
+      const routes = [shareRoutePath(icon.id, copy.id), legacyShareRoutePath(icon.id, copy.id)];
+      assert.match(routes[0], /^(?:[q-z]|[0-5])\/$/);
+      assert.match(routes[1], /^[a-p]\/$/);
 
-      assert.match(page, /Generated by scripts\/build-share-pages\.mjs/);
-      assert.match(page, new RegExp(`data-base="\\.\\.\/" data-share-icon="${icon.id}" data-share-copy="${copy.id}"`));
-      assert.ok(page.includes(`<meta property="og:description" content="${copy.text}" />`));
-      assert.ok(page.includes(`<meta property="og:url" content="${routeUrl}" />`));
-      assert.ok(page.includes(`<meta property="og:image" content="${imageUrl}" />`));
-      assert.ok(page.includes(`<link rel="image_src" href="${imageUrl}" />`));
-      assert.match(page, /<meta property="og:image:width" content="512" \/>/);
-      assert.match(page, /<link rel="stylesheet" href="\.\.\/styles\.css" \/>/);
-      assert.match(page, /<script type="module" src="\.\.\/app\.js"><\/script>/);
-      assert.doesNotMatch(page, /src="\.\/icons\//);
-      assert.match(page, /src="\.\.\/icons\//);
-      if (page.includes("m.mp3")) {
-        assert.match(page, /src="\.\.\/m\.mp3"/);
-        assert.doesNotMatch(page, /src="\.\/m\.mp3"/);
+      for (const routePath of routes) {
+        assert.equal(generatedPaths.has(routePath), false, `${routePath} must be unique`);
+        generatedPaths.add(routePath);
+
+        const page = await readFile(new URL(`../${routePath}index.html`, import.meta.url), "utf8");
+        const routeUrl = new URL(routePath, publicRoot).href;
+        const imageUrl = new URL(icon.thumbnailPath, publicRoot).href;
+        const personalUrl = createInviteUrl(routeUrl, invite);
+
+        assert.equal(new URL(personalUrl).pathname, `/hx/${routePath}`);
+        assert.deepEqual(inviteFromHash(new URL(personalUrl).hash), invite);
+        assert.match(page, /Generated by scripts\/build-share-pages\.mjs/);
+        assert.match(page, new RegExp(`data-base="\\.\\.\/" data-share-icon="${icon.id}" data-share-copy="${copy.id}"`));
+        assert.ok(page.includes(`<meta property="og:description" content="${copy.text}" />`));
+        assert.ok(page.includes(`<meta property="og:url" content="${routeUrl}" />`));
+        assert.ok(page.includes(`<meta property="og:image" content="${imageUrl}" />`));
+        assert.ok(page.includes(`<link rel="image_src" href="${imageUrl}" />`));
+        assert.ok(page.includes(`<link rel="icon" href="${imageUrl}" />`));
+        assert.match(page, /<meta property="og:image:width" content="300" \/>/);
+        assert.equal(page.indexOf("<img"), page.indexOf('<img\n      class="share-crawler-image"'));
+        assert.ok(page.includes(`src="${imageUrl}"\n      width="300"`));
+        assert.ok(page.includes(`<img id="share-preview-image" src="../${icon.path}"`));
+        assert.ok(page.includes(`<img id="welcome-share-icon" class="welcome-share-icon" src="../${icon.path}"`));
+        assert.match(page, /<link rel="stylesheet" href="\.\.\/styles\.css" \/>/);
+        assert.match(page, /<script type="module" src="\.\.\/app\.js"><\/script>/);
+        assert.doesNotMatch(page, /src="\.\/icons\//);
+        assert.match(page, /src="\.\.\/icons\//);
+        if (page.includes("m.mp3")) {
+          assert.match(page, /src="\.\.\/m\.mp3"/);
+          assert.doesNotMatch(page, /src="\.\/m\.mp3"/);
+        }
+        assert.doesNotMatch(page, /短链测试甲|短链测试乙|短链测试宴会厅|短链测试路 31 号|这段短链测试寄语/);
+        count += 1;
       }
-      assert.doesNotMatch(page, /短链测试甲|短链测试乙|短链测试宴会厅|短链测试路 31 号|这段短链测试寄语/);
-      count += 1;
     }
   }
-  assert.equal(count, 16);
+
+  assert.equal(count, 32);
 });

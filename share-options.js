@@ -4,24 +4,28 @@ export const SHARE_ICONS = Object.freeze([
     label: "双喜团子",
     hint: "经典喜气",
     path: "icons/double-happiness.jpg",
+    thumbnailPath: "thumbs/a.jpg",
   }),
   Object.freeze({
     id: "sweet-bears",
     label: "甜蜜小熊",
     hint: "温柔可爱",
     path: "icons/sweet-bears.jpg",
+    thumbnailPath: "thumbs/b.jpg",
   }),
   Object.freeze({
     id: "love-birds",
     label: "喜鹊成双",
     hint: "雅致成双",
     path: "icons/love-birds.jpg",
+    thumbnailPath: "thumbs/c.jpg",
   }),
   Object.freeze({
     id: "happy-envelope",
     label: "喜信到啦",
     hint: "热闹俏皮",
     path: "icons/happy-envelope.jpg",
+    thumbnailPath: "thumbs/d.jpg",
   }),
 ]);
 
@@ -51,9 +55,30 @@ export const SHARE_COPIES = Object.freeze([
 export const DEFAULT_SHARE_ICON_ID = SHARE_ICONS[0].id;
 export const DEFAULT_SHARE_COPY_ID = SHARE_COPIES[0].id;
 
-// Keep this mapping explicit so existing shared URLs never change if the
-// presentation options are reordered later.
+// Current one-character generation. Keep this mapping immutable after release;
+// rotate to a disjoint set for future crawler-cache resets.
 export const SHARE_ROUTE_LETTERS = Object.freeze({
+  "double-happiness:classic": "q",
+  "double-happiness:witness": "r",
+  "double-happiness:two-families": "s",
+  "double-happiness:good-day": "t",
+  "sweet-bears:classic": "u",
+  "sweet-bears:witness": "v",
+  "sweet-bears:two-families": "w",
+  "sweet-bears:good-day": "x",
+  "love-birds:classic": "y",
+  "love-birds:witness": "z",
+  "love-birds:two-families": "0",
+  "love-birds:good-day": "1",
+  "happy-envelope:classic": "2",
+  "happy-envelope:witness": "3",
+  "happy-envelope:two-families": "4",
+  "happy-envelope:good-day": "5",
+});
+
+// Keep the first one-letter generation published so invitations that were
+// already shared continue to open after the cache-busting route rotation.
+export const LEGACY_SHARE_ROUTE_LETTERS = Object.freeze({
   "double-happiness:classic": "a",
   "double-happiness:witness": "b",
   "double-happiness:two-families": "c",
@@ -84,4 +109,10 @@ export function shareRoutePath(iconId, copyId) {
   const icon = shareIconById(iconId);
   const copy = shareCopyById(copyId);
   return `${SHARE_ROUTE_LETTERS[`${icon.id}:${copy.id}`]}/`;
+}
+
+export function legacyShareRoutePath(iconId, copyId) {
+  const icon = shareIconById(iconId);
+  const copy = shareCopyById(copyId);
+  return `${LEGACY_SHARE_ROUTE_LETTERS[`${icon.id}:${copy.id}`]}/`;
 }

@@ -297,7 +297,8 @@ async function copyText(value) {
 
 function currentShareUrl() {
   if (!activeInvite) throw new InviteLinkError("当前没有可分享的请帖。", "NO_ACTIVE_INVITE");
-  return createInviteUrl(window.location.href, activeInvite);
+  const currentRoute = new URL(shareRoutePath(activeShareIcon.id, activeShareCopy.id), projectRootUrl());
+  return createInviteUrl(currentRoute, activeInvite);
 }
 
 async function copyInviteLink() {
