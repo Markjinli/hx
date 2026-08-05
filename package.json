@@ -5,7 +5,8 @@
   "type": "module",
   "description": "A serverless two-page Chinese wedding invitation for GitHub Pages.",
   "scripts": {
-    "check": "node --check app.js && node --check invite-codec.js && node --test",
+    "build": "node scripts/build-share-pages.mjs",
+    "check": "npm run build && node --check app.js && node --check invite-codec.js && node --check share-options.js && node --check scripts/build-share-pages.mjs && node --test",
     "test": "node --test"
   }
 }

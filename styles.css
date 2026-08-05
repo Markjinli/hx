@@ -362,6 +362,14 @@ button {
   font-size: 9px;
 }
 
+.invite-form legend small {
+  margin-left: auto;
+  color: #a18e86;
+  font-size: 8px;
+  font-weight: 500;
+  letter-spacing: 0;
+}
+
 .field-row {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -421,6 +429,146 @@ button {
   border-color: rgba(159, 36, 48, 0.46);
   background: #fff;
   box-shadow: 0 0 0 4px rgba(159, 36, 48, 0.07);
+}
+
+.share-choice-fieldset {
+  padding-top: 2px !important;
+}
+
+.icon-choice-grid,
+.copy-choice-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 9px;
+}
+
+.choice-label {
+  position: relative;
+  min-width: 0;
+  cursor: pointer;
+}
+
+.choice-label > input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+}
+
+.icon-choice-card,
+.copy-choice > span {
+  display: flex;
+  min-height: 72px;
+  gap: 10px;
+  align-items: center;
+  padding: 8px;
+  border: 1px solid rgba(78, 45, 34, 0.12);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.58);
+  transition: border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease, background 160ms ease;
+}
+
+.icon-choice-card img {
+  width: 54px;
+  height: 54px;
+  flex: 0 0 auto;
+  border-radius: 10px;
+  object-fit: cover;
+}
+
+.icon-choice-card > span,
+.copy-choice > span {
+  min-width: 0;
+}
+
+.icon-choice-card > span {
+  display: grid;
+  gap: 4px;
+}
+
+.icon-choice-card strong,
+.copy-choice strong {
+  color: #503b34;
+  font-size: 10px;
+}
+
+.icon-choice-card small,
+.copy-choice small {
+  color: #9c8981;
+  font-size: 8px;
+  line-height: 1.5;
+}
+
+.copy-choice > span {
+  display: grid;
+  align-content: center;
+  gap: 4px;
+  padding: 10px 12px;
+}
+
+.choice-label:hover > span {
+  transform: translateY(-1px);
+  border-color: rgba(159, 36, 48, 0.3);
+}
+
+.choice-label > input:checked + span {
+  border-color: rgba(159, 36, 48, 0.58);
+  background: rgba(159, 36, 48, 0.055);
+  box-shadow: 0 0 0 3px rgba(159, 36, 48, 0.06);
+}
+
+.choice-label > input:focus-visible + span {
+  outline: 3px solid rgba(198, 155, 82, 0.56);
+  outline-offset: 2px;
+}
+
+.share-card-preview {
+  display: grid;
+  grid-template-columns: 64px minmax(0, 1fr);
+  gap: 12px;
+  align-items: center;
+  margin: 1px 0 18px;
+  padding: 12px;
+  border: 1px solid rgba(78, 45, 34, 0.1);
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 8px 22px rgba(78, 36, 28, 0.055);
+}
+
+.share-card-preview img {
+  width: 64px;
+  height: 64px;
+  border-radius: 9px;
+  object-fit: cover;
+}
+
+.share-card-preview p {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+  margin: 0;
+}
+
+.share-card-preview p > span {
+  color: #9b8981;
+  font-size: 8px;
+}
+
+.share-card-preview strong {
+  overflow: hidden;
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.share-card-preview small {
+  display: -webkit-box;
+  overflow: hidden;
+  color: #8e7b74;
+  font-size: 9px;
+  line-height: 1.45;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
 }
 
 .privacy-note {
@@ -600,6 +748,22 @@ button {
   font-family: var(--serif);
   font-size: 13px;
   letter-spacing: 0.38em;
+}
+
+.welcome-share-icon {
+  position: relative;
+  z-index: 1;
+  width: 58px;
+  height: 58px;
+  margin-top: 17px;
+  border: 2px solid rgba(255, 247, 225, 0.8);
+  border-radius: 17px;
+  box-shadow: 0 9px 24px rgba(48, 5, 12, 0.24);
+  object-fit: cover;
+}
+
+.welcome-share-icon + .double-happiness {
+  margin-top: clamp(14px, 3vh, 24px);
 }
 
 .double-happiness {
@@ -955,6 +1119,9 @@ button {
   .form-heading > b { font-size: 43px; }
   .field-row { grid-template-columns: 1fr; }
   .date-row { grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr); }
+  .copy-choice-grid { grid-template-columns: 1fr; }
+  .icon-choice-card { gap: 7px; padding: 7px; }
+  .icon-choice-card img { width: 48px; height: 48px; }
   .builder-footer { font-size: 8px; }
 
   .invite-view { padding: 0; }

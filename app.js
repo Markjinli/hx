@@ -6,6 +6,7 @@ import {
   normalizeInvite,
   splitWeddingDate,
 } from "./invite-codec.js";
+import { shareCopyById, shareIconById, shareRoutePath } from "./share-options.js";
 
 const ORIGINAL_TITLE = "合禧请帖｜生成属于你们的婚礼 H5";
 const DEFAULT_MESSAGE = "诚邀您见证我们的幸福时刻，期待与您分享这份喜悦。";
@@ -17,6 +18,8 @@ const form = document.querySelector("#invite-form");
 const formError = document.querySelector("#form-error");
 const messageInput = document.querySelector("#message");
 const messageCount = document.querySelector("#message-count");
+const personAInput = document.querySelector("#person-a");
+const personBInput = document.querySelector("#person-b");
 const inviteStage = document.querySelector("#invite-stage");
 const welcomePage = document.querySelector("#welcome-page");
 const contentPage = document.querySelector("#content-page");
@@ -26,6 +29,8 @@ let activeInvite = null;
 let activePage = "welcome";
 let toastTimer = null;
 let pointerStart = null;
+const activeShareIcon = shareIconById(document.documentElement.dataset.shareIcon);
+const activeShareCopy = shareCopyById(document.documentElement.dataset.shareCopy);
 
 function byId(id) {
   return document.getElementById(id);
@@ -34,6 +39,57 @@ function byId(id) {
 function setText(id, value) {
   const element = byId(id);
   if (element) element.textContent = value;
+}
+
+function projectRootUrl() {
+  const url = new URL(document.documentElement.dataset.base || "./", window.location.href);
+  url.search = "";
+  url.hash = "";
+  return url;
+}
+
+function iconUrl(icon) {
+  return new URL(icon.path, projectRootUrl()).href;
+}
+
+function selectedSharePresentation() {
+  const fields = new FormData(form);
+  return {
+    icon: shareIconById(fields.get("shareIcon")),
+    copy: shareCopyById(fields.get("shareCopy")),
+  };
+}
+
+function updateBuilderSharePreview() {
+  const { icon, copy } = selectedSharePresentation();
+  const previewImage = byId("share-preview-image");
+  if (previewImage) previewImage.src = iconUrl(icon);
+
+  const personA = personAInput.value.trim();
+  const personB = personBInput.value.trim();
+  setText("share-preview-title", personA && personB ? `${personA}与${personB}的婚礼请帖` : "一份专属婚礼请帖");
+  setText("share-preview-description", copy.text);
+}
+
+function setupSharePresentation() {
+  document.querySelectorAll("[data-builder-link]").forEach((link) => {
+    link.href = projectRootUrl().href;
+  });
+
+  document.querySelectorAll("[data-icon-preview]").forEach((image) => {
+    image.src = iconUrl(shareIconById(image.dataset.iconPreview));
+  });
+
+  document.querySelectorAll('input[name="shareIcon"]').forEach((input) => {
+    input.checked = input.value === activeShareIcon.id;
+  });
+  document.querySelectorAll('input[name="shareCopy"]').forEach((input) => {
+    input.checked = input.value === activeShareCopy.id;
+  });
+
+  const welcomeIcon = byId("welcome-share-icon");
+  if (welcomeIcon) welcomeIcon.src = iconUrl(activeShareIcon);
+  updateBuilderSharePreview();
 }
 
 function setView(view) {
@@ -166,16 +222,8 @@ function handleLocation() {
   }
 }
 
-function rootUrl() {
-  const url = new URL(window.location.href);
-  url.search = "";
-  url.hash = "";
-  return url.href;
-}
-
 function returnToBuilder() {
-  window.history.pushState(null, "", rootUrl());
-  showBuilder();
+  window.location.assign(projectRootUrl().href);
 }
 
 async function copyText(value) {
@@ -212,7 +260,7 @@ async function shareInvite() {
   if (!activeInvite) return;
   const shareData = {
     title: `${activeInvite.personA}与${activeInvite.personB}的婚礼请帖`,
-    text: `诚邀您见证${activeInvite.personA}与${activeInvite.personB}的幸福时刻`,
+    text: activeShareCopy.text,
     url: currentShareUrl(),
   };
 
@@ -247,8 +295,10 @@ form.addEventListener("submit", (event) => {
 
   try {
     const invite = valuesFromForm();
-    const shareUrl = createInviteUrl(window.location.href, invite);
-    window.location.hash = new URL(shareUrl).hash.slice(1);
+    const { icon, copy } = selectedSharePresentation();
+    const routeUrl = new URL(shareRoutePath(icon.id, copy.id), projectRootUrl());
+    const shareUrl = createInviteUrl(routeUrl, invite);
+    window.location.assign(shareUrl);
   } catch (error) {
     showFormError(error instanceof Error ? error.message : "生成失败，请检查填写内容。");
   }
@@ -257,6 +307,12 @@ form.addEventListener("submit", (event) => {
 messageInput.addEventListener("input", () => {
   messageCount.value = String(Array.from(messageInput.value).length);
 });
+
+form.addEventListener("change", (event) => {
+  if (event.target.matches('input[name="shareIcon"], input[name="shareCopy"]')) updateBuilderSharePreview();
+});
+personAInput.addEventListener("input", updateBuilderSharePreview);
+personBInput.addEventListener("input", updateBuilderSharePreview);
 
 byId("open-invite").addEventListener("click", () => setPage("content"));
 byId("back-to-cover").addEventListener("click", () => setPage("welcome"));
@@ -299,4 +355,5 @@ window.addEventListener("keydown", (event) => {
 window.addEventListener("hashchange", handleLocation);
 window.addEventListener("popstate", handleLocation);
 
+setupSharePresentation();
 handleLocation();

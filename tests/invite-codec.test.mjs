@@ -69,17 +69,20 @@ test("formats dates in local calendar terms", () => {
 });
 
 test("the published surface is static, relative-path safe, and network-free", async () => {
-  const [html, app, css] = await Promise.all([
+  const [html, app, css, shareOptions] = await Promise.all([
     readFile(new URL("../index.html", import.meta.url), "utf8"),
     readFile(new URL("../app.js", import.meta.url), "utf8"),
     readFile(new URL("../styles.css", import.meta.url), "utf8"),
+    readFile(new URL("../share-options.js", import.meta.url), "utf8"),
   ]);
 
   assert.match(html, /<script type="module" src="\.\/app\.js"><\/script>/);
   assert.match(html, /<link rel="stylesheet" href="\.\/styles\.css"/);
   assert.match(html, /id="welcome-page"/);
   assert.match(html, /id="content-page"/);
-  assert.match(html, /og\.png/);
-  assert.doesNotMatch(`${html}\n${app}\n${css}`, /fetch\(|XMLHttpRequest|https?:\/\/(?!markjinli\.github\.io)/);
+  assert.match(html, /icons\/double-happiness\.jpg/);
+  assert.match(html, /name="shareIcon"/);
+  assert.match(html, /name="shareCopy"/);
+  assert.doesNotMatch(`${html}\n${app}\n${css}\n${shareOptions}`, /fetch\(|XMLHttpRequest|https?:\/\/(?!markjinli\.github\.io)/);
   assert.doesNotMatch(app, /innerHTML|localStorage|sessionStorage/);
 });
