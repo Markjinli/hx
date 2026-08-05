@@ -1,13 +1,13 @@
 /**
  * Versioned, serverless invitation-link protocol.
  *
- * The payload lives in the URL fragment (#i=...), so GitHub Pages always
+ * The payload lives in the URL fragment, so GitHub Pages always
  * serves the same index.html and the personal details are not part of the HTTP
  * request. Base64url is transport encoding only; it is deliberately not
  * presented as encryption.
  */
 
-export const INVITE_VERSION = 1;
+export const INVITE_VERSION = 2;
 export const HASH_KEY = "i";
 export const MAX_PAYLOAD_BYTES = 1400;
 export const MAX_ENCODED_LENGTH = 1900;
@@ -120,23 +120,66 @@ function crc32Hex(bytes) {
   return crc32(bytes).toString(16).padStart(8, "0");
 }
 
+function crc32Base64Url(bytes) {
+  const checksum = new Uint8Array(4);
+  new DataView(checksum.buffer).setUint32(0, crc32(bytes), false);
+  return bytesToBase64Url(checksum);
+}
+
+function compactDate(value) {
+  return value.replace(/-/g, "");
+}
+
+function restoreDate(value) {
+  const compact = String(value ?? "");
+  return /^\d{8}$/.test(compact)
+    ? `${compact.slice(0, 4)}-${compact.slice(4, 6)}-${compact.slice(6, 8)}`
+    : compact;
+}
+
+function compactTime(value) {
+  return value.replace(/:/g, "");
+}
+
+function restoreTime(value) {
+  const compact = String(value ?? "");
+  return /^\d{4}$/.test(compact) ? `${compact.slice(0, 2)}:${compact.slice(2, 4)}` : compact;
+}
+
+function decodePayloadText(payloadToken, checksum, checksumType) {
+  try {
+    const bytes = base64UrlToBytes(payloadToken);
+    if (bytes.length > MAX_PAYLOAD_BYTES) {
+      throw new InviteLinkError("专属链接内容过长。", "PAYLOAD_TOO_LARGE");
+    }
+    const expectedChecksum = checksumType === "base64url" ? crc32Base64Url(bytes) : crc32Hex(bytes);
+    const receivedChecksum = checksumType === "hex" ? checksum.toLowerCase() : checksum;
+    if (expectedChecksum !== receivedChecksum) {
+      throw new InviteLinkError("专属链接在复制时可能缺失或被改动。", "CHECKSUM_MISMATCH");
+    }
+    return new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+  } catch (error) {
+    if (error instanceof InviteLinkError) throw error;
+    throw new InviteLinkError("专属链接内容已损坏。", "BAD_PAYLOAD");
+  }
+}
+
 export function encodeInvite(input) {
   const invite = normalizeInvite(input);
-  const compactPayload = {
-    v: INVITE_VERSION,
-    a: invite.personA,
-    b: invite.personB,
-    d: invite.date,
-    t: invite.time,
-    n: invite.venue,
-    l: invite.address,
-    m: invite.message,
-  };
-  const bytes = new TextEncoder().encode(JSON.stringify(compactPayload));
+  const compactPayload = [
+    invite.personA,
+    invite.personB,
+    compactDate(invite.date),
+    compactTime(invite.time),
+    invite.venue,
+    invite.address,
+    invite.message,
+  ].join("\x1f");
+  const bytes = new TextEncoder().encode(compactPayload);
   if (bytes.length > MAX_PAYLOAD_BYTES) {
     throw new InviteLinkError("填写的内容过长，请精简地址或邀请寄语。", "PAYLOAD_TOO_LARGE");
   }
-  const token = `v${INVITE_VERSION}.${bytesToBase64Url(bytes)}.${crc32Hex(bytes)}`;
+  const token = `${INVITE_VERSION}.${bytesToBase64Url(bytes)}.${crc32Base64Url(bytes)}`;
   if (token.length > MAX_ENCODED_LENGTH) {
     throw new InviteLinkError("填写的内容过长，请精简地址或邀请寄语。", "PAYLOAD_TOO_LARGE");
   }
@@ -148,50 +191,60 @@ export function decodeInvite(encoded) {
     throw new InviteLinkError("专属链接为空或内容过长。", "BAD_LENGTH");
   }
 
-  const tokenMatch = /^v(\d+)\.([A-Za-z0-9_-]+)\.([0-9a-f]{8})$/i.exec(encoded);
-  if (!tokenMatch) {
-    throw new InviteLinkError("专属链接格式不完整。", "BAD_TOKEN_FORMAT");
+  const v2Match = /^2\.([A-Za-z0-9_-]+)\.([A-Za-z0-9_-]{6})$/.exec(encoded);
+  if (v2Match) {
+    const payload = decodePayloadText(v2Match[1], v2Match[2], "base64url").split("\x1f");
+    if (payload.length !== 7) {
+      throw new InviteLinkError("专属链接内容已损坏。", "BAD_PAYLOAD");
+    }
+    return normalizeInvite({
+      personA: payload[0],
+      personB: payload[1],
+      date: restoreDate(payload[2]),
+      time: restoreTime(payload[3]),
+      venue: payload[4],
+      address: payload[5],
+      message: payload[6],
+    });
   }
-  if (Number(tokenMatch[1]) !== INVITE_VERSION) {
+
+  const v1Match = /^v1\.([A-Za-z0-9_-]+)\.([0-9a-f]{8})$/i.exec(encoded);
+  if (v1Match) {
+    let payload;
+    try {
+      payload = JSON.parse(decodePayloadText(v1Match[1], v1Match[2], "hex"));
+    } catch (error) {
+      if (error instanceof InviteLinkError) throw error;
+      throw new InviteLinkError("专属链接内容已损坏。", "BAD_PAYLOAD");
+    }
+    if (!payload || payload.v !== 1) {
+      throw new InviteLinkError("这个请帖链接版本暂不受支持。", "UNSUPPORTED_VERSION");
+    }
+    return normalizeInvite({
+      personA: payload.a,
+      personB: payload.b,
+      date: payload.d,
+      time: payload.t,
+      venue: payload.n,
+      address: payload.l,
+      message: payload.m,
+    });
+  }
+
+  const versionMatch = /^(?:v)?(\d+)\./.exec(encoded);
+  if (versionMatch && ![1, INVITE_VERSION].includes(Number(versionMatch[1]))) {
     throw new InviteLinkError("这个请帖链接版本暂不受支持。", "UNSUPPORTED_VERSION");
   }
-
-  let payload;
-  try {
-    const bytes = base64UrlToBytes(tokenMatch[2]);
-    if (bytes.length > MAX_PAYLOAD_BYTES) {
-      throw new InviteLinkError("专属链接内容过长。", "PAYLOAD_TOO_LARGE");
-    }
-    if (crc32Hex(bytes) !== tokenMatch[3].toLowerCase()) {
-      throw new InviteLinkError("专属链接在复制时可能缺失或被改动。", "CHECKSUM_MISMATCH");
-    }
-    const json = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
-    payload = JSON.parse(json);
-  } catch (error) {
-    if (error instanceof InviteLinkError) throw error;
-    throw new InviteLinkError("专属链接内容已损坏。", "BAD_PAYLOAD");
-  }
-
-  if (!payload || payload.v !== INVITE_VERSION) {
-    throw new InviteLinkError("这个请帖链接版本暂不受支持。", "UNSUPPORTED_VERSION");
-  }
-
-  return normalizeInvite({
-    personA: payload.a,
-    personB: payload.b,
-    date: payload.d,
-    time: payload.t,
-    venue: payload.n,
-    address: payload.l,
-    message: payload.m,
-  });
+  throw new InviteLinkError("专属链接格式不完整。", "BAD_TOKEN_FORMAT");
 }
 
 export function encodedInviteFromHash(hash) {
   const rawHash = String(hash ?? "").replace(/^#/, "");
   if (!rawHash) return null;
   const params = new URLSearchParams(rawHash);
-  return params.get(HASH_KEY);
+  const legacyToken = params.get(HASH_KEY);
+  if (legacyToken) return legacyToken;
+  return /^(?:v)?\d+\./.test(rawHash) ? rawHash : null;
 }
 
 export function inviteFromHash(hash) {
@@ -202,7 +255,7 @@ export function inviteFromHash(hash) {
 export function createInviteUrl(currentUrl, input) {
   const url = new URL(currentUrl);
   url.search = "";
-  url.hash = `${HASH_KEY}=${encodeInvite(input)}`;
+  url.hash = encodeInvite(input);
   if (url.href.length > MAX_SHARE_URL_LENGTH) {
     throw new InviteLinkError("生成的专属链接过长，请精简地址或邀请寄语。", "URL_TOO_LONG");
   }

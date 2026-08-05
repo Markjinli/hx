@@ -24,11 +24,16 @@ const inviteStage = document.querySelector("#invite-stage");
 const welcomePage = document.querySelector("#welcome-page");
 const contentPage = document.querySelector("#content-page");
 const toast = document.querySelector("#toast");
+const inviteMusic = document.querySelector("#invite-music");
+const musicToggle = document.querySelector("#music-toggle");
+const musicStatus = document.querySelector("#music-status");
 
 let activeInvite = null;
 let activePage = "welcome";
 let toastTimer = null;
 let pointerStart = null;
+let musicDisabledByUser = false;
+let musicErrorToastAt = 0;
 const activeShareIcon = shareIconById(document.documentElement.dataset.shareIcon);
 const activeShareCopy = shareCopyById(document.documentElement.dataset.shareCopy);
 
@@ -93,10 +98,53 @@ function setupSharePresentation() {
 }
 
 function setView(view) {
+  if (view !== "invite" && inviteMusic && !inviteMusic.paused) inviteMusic.pause();
   document.body.dataset.view = view;
   builderView.hidden = view !== "builder";
   inviteView.hidden = view !== "invite";
   errorView.hidden = view !== "error";
+}
+
+function updateMusicControl() {
+  if (!inviteMusic || !musicToggle || !musicStatus) return;
+  const isPlaying = !inviteMusic.paused && !inviteMusic.ended;
+  musicToggle.classList.toggle("is-playing", isPlaying);
+  musicToggle.setAttribute("aria-pressed", String(isPlaying));
+  musicToggle.setAttribute("aria-label", isPlaying ? "暂停背景音乐" : "播放背景音乐");
+  musicStatus.textContent = isPlaying ? "背景音乐正在播放" : "背景音乐已暂停";
+}
+
+function showMusicError() {
+  if (document.body.dataset.view !== "invite") return;
+  const now = Date.now();
+  if (now - musicErrorToastAt < 2500) return;
+  musicErrorToastAt = now;
+  showToast("背景音乐暂时无法播放，请稍后重试");
+}
+
+async function playInviteMusic({ reportError = false } = {}) {
+  if (!inviteMusic || document.body.dataset.view !== "invite" || musicDisabledByUser) return false;
+  inviteMusic.volume = 0.38;
+  try {
+    await inviteMusic.play();
+    updateMusicControl();
+    return true;
+  } catch {
+    updateMusicControl();
+    if (reportError) showMusicError();
+    return false;
+  }
+}
+
+function toggleInviteMusic() {
+  if (!inviteMusic) return;
+  if (!inviteMusic.paused) {
+    musicDisabledByUser = true;
+    inviteMusic.pause();
+    return;
+  }
+  musicDisabledByUser = false;
+  void playInviteMusic({ reportError: true });
 }
 
 function showToast(message) {
@@ -149,7 +197,11 @@ function setPage(page, { focus = true } = {}) {
   welcomePage.inert = !showingWelcome;
   contentPage.inert = showingWelcome;
   if (showingWelcome) welcomePage.scrollTop = 0;
-  else contentPage.scrollTop = 0;
+  else {
+    contentPage.scrollTop = 0;
+    // 点击、键盘或上滑开启详情都属于用户手势，可用于解除移动端自动播放限制。
+    void playInviteMusic({ reportError: true });
+  }
 
   document.querySelectorAll("[data-page-target]").forEach((dot) => {
     const selected = dot.dataset.pageTarget === page;
@@ -196,6 +248,7 @@ function showInvite(invite) {
   document.title = `${invite.personA}与${invite.personB}的婚礼请帖｜合禧`;
   setView("invite");
   setPage("welcome", { focus: false });
+  void playInviteMusic();
 }
 
 function showLinkError(error) {
@@ -315,6 +368,10 @@ personAInput.addEventListener("input", updateBuilderSharePreview);
 personBInput.addEventListener("input", updateBuilderSharePreview);
 
 byId("open-invite").addEventListener("click", () => setPage("content"));
+musicToggle?.addEventListener("click", toggleInviteMusic);
+inviteMusic?.addEventListener("play", updateMusicControl);
+inviteMusic?.addEventListener("pause", updateMusicControl);
+inviteMusic?.addEventListener("error", showMusicError);
 byId("back-to-cover").addEventListener("click", () => setPage("welcome"));
 byId("content-share-top").addEventListener("click", shareInvite);
 byId("share-invite").addEventListener("click", shareInvite);

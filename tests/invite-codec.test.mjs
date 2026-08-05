@@ -6,6 +6,7 @@ import {
   createInviteUrl,
   crc32,
   decodeInvite,
+  encodedInviteFromHash,
   encodeInvite,
   formatWeddingDate,
   inviteFromHash,
@@ -22,10 +23,36 @@ const fixture = {
   message: "一纸婚书，两姓之好。诚邀您见证我们的幸福时刻！",
 };
 
-test("round-trips Chinese, emoji and punctuation through a versioned token", () => {
+const knownV1Token = "v1.eyJ2IjoxLCJhIjoi5p6X55-l5aSPIiwiYiI6IuWRqOS6puWuiSDwn5KQIiwiZCI6IjIwMjYtMTAtMTgiLCJ0IjoiMTg6MTgiLCJuIjoi5ZiJ5oKm5a605Lya6Im65pyv5Lit5b-DIiwibCI6Iua5lueVlOi3ryA4OCDlj7cgwrcg5LqR6ZSm5Y6FIiwibSI6IuS4gOe6uOWpmuS5pu-8jOS4pOWnk-S5i-WlveOAguivmumCgOaCqOingeivgeaIkeS7rOeahOW5uOemj-aXtuWIu--8gSJ9.c48f6bdd";
+
+function dynamicV1Token(invite) {
+  const payload = {
+    v: 1,
+    a: invite.personA,
+    b: invite.personB,
+    d: invite.date,
+    t: invite.time,
+    n: invite.venue,
+    l: invite.address,
+    m: invite.message,
+  };
+  const bytes = new TextEncoder().encode(JSON.stringify(payload));
+  const encodedPayload = Buffer.from(bytes).toString("base64url");
+  return `v1.${encodedPayload}.${crc32(bytes).toString(16).padStart(8, "0")}`;
+}
+
+test("round-trips Chinese, emoji and punctuation through the compact v2 token", () => {
   const encoded = encodeInvite(fixture);
-  assert.match(encoded, /^v1\.[A-Za-z0-9_-]+\.[0-9a-f]{8}$/);
+  assert.match(encoded, /^2\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]{6}$/);
+  const compactPayload = Buffer.from(encoded.split(".")[1], "base64url").toString("utf8").split("\x1f");
+  assert.deepEqual(compactPayload.slice(2, 4), ["20261018", "1818"]);
   assert.deepEqual(decodeInvite(encoded), fixture);
+  assert.ok(encoded.length <= knownV1Token.length - 25, `${encoded.length} should be clearly shorter than ${knownV1Token.length}`);
+});
+
+test("keeps known and dynamically constructed v1 invitation links compatible", () => {
+  assert.deepEqual(decodeInvite(knownV1Token), fixture);
+  assert.deepEqual(decodeInvite(dynamicV1Token(fixture)), fixture);
 });
 
 test("uses the standard CRC-32 test vector", () => {
@@ -33,14 +60,23 @@ test("uses the standard CRC-32 test vector", () => {
 });
 
 test("creates a project-path-safe URL, drops queries, and restores from hash", () => {
-  const url = createInviteUrl("https://markjinli.github.io/hexi-wedding-invitation/?source=test#old", fixture);
+  const url = createInviteUrl("https://markjinli.github.io/hx/?source=test#old", fixture);
   const parsed = new URL(url);
   assert.equal(parsed.origin, "https://markjinli.github.io");
-  assert.equal(parsed.pathname, "/hexi-wedding-invitation/");
+  assert.equal(parsed.pathname, "/hx/");
   assert.equal(parsed.search, "");
-  assert.match(parsed.hash, /^#i=v1\./);
+  assert.match(parsed.hash, /^#2\./);
   assert.deepEqual(inviteFromHash(parsed.hash), fixture);
   assert.ok(url.length < 2048);
+});
+
+test("extracts both bare v2 and legacy i= hashes", () => {
+  const v2 = encodeInvite(fixture);
+  assert.equal(encodedInviteFromHash(`#${v2}`), v2);
+  assert.equal(encodedInviteFromHash(`#i=${knownV1Token}`), knownV1Token);
+  assert.deepEqual(inviteFromHash(`#${v2}`), fixture);
+  assert.deepEqual(inviteFromHash(`#i=${knownV1Token}`), fixture);
+  assert.equal(encodedInviteFromHash("#not-an-invite"), null);
 });
 
 test("rejects missing fields, impossible dates and invalid times", () => {
@@ -52,10 +88,12 @@ test("rejects missing fields, impossible dates and invalid times", () => {
 
 test("detects truncation, mutation, unknown versions and malformed payloads", () => {
   const encoded = encodeInvite(fixture);
-  const mutated = `${encoded.slice(0, 7)}${encoded[7] === "A" ? "B" : "A"}${encoded.slice(8)}`;
+  const parts = encoded.split(".");
+  const mutatedPayload = `${parts[1][0] === "A" ? "B" : "A"}${parts[1].slice(1)}`;
+  const mutated = `${parts[0]}.${mutatedPayload}.${parts[2]}`;
   assert.throws(() => decodeInvite(encoded.slice(0, -2)), /格式不完整|缺失|改动/);
   assert.throws(() => decodeInvite(mutated), (error) => error instanceof InviteLinkError && error.code === "CHECKSUM_MISMATCH");
-  assert.throws(() => decodeInvite(encoded.replace(/^v1\./, "v2.")), (error) => error instanceof InviteLinkError && error.code === "UNSUPPORTED_VERSION");
+  assert.throws(() => decodeInvite(encoded.replace(/^2\./, "3.")), (error) => error instanceof InviteLinkError && error.code === "UNSUPPORTED_VERSION");
   assert.throws(() => decodeInvite("v1.not+base64.00000000"), /格式不完整/);
 });
 

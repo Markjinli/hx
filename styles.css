@@ -118,8 +118,8 @@ button {
 
 .brand-seal {
   display: grid;
-  width: 38px;
-  height: 38px;
+  width: 44px;
+  height: 44px;
   place-items: center;
   border-radius: 10px 3px 10px 3px;
   background: linear-gradient(145deg, #bb3540, #72131e);
@@ -641,6 +641,86 @@ button {
   touch-action: pan-y;
 }
 
+.invite-music {
+  display: none;
+}
+
+.visually-hidden {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+  clip: rect(0, 0, 0, 0) !important;
+  white-space: nowrap !important;
+  border: 0 !important;
+}
+
+.music-toggle {
+  position: absolute;
+  z-index: 20;
+  top: max(14px, env(safe-area-inset-top));
+  right: max(72px, calc(58px + env(safe-area-inset-right)));
+  display: grid;
+  width: 38px;
+  height: 38px;
+  padding: 0;
+  place-items: center;
+  border: 1px solid rgba(239, 210, 152, 0.52);
+  border-radius: 50%;
+  background: rgba(78, 11, 21, 0.42);
+  box-shadow: 0 7px 20px rgba(42, 3, 10, 0.16);
+  color: #f7dfad;
+  backdrop-filter: blur(8px);
+  transition: border-color 180ms ease, background 180ms ease, color 180ms ease;
+}
+
+.music-toggle::after {
+  position: absolute;
+  inset: -4px;
+  border: 1px solid rgba(239, 210, 152, 0.38);
+  border-radius: inherit;
+  content: "";
+  opacity: 0;
+  pointer-events: none;
+}
+
+.music-disc {
+  display: grid;
+  width: 27px;
+  height: 27px;
+  place-items: center;
+  border: 1px solid currentColor;
+  border-radius: 50%;
+  font-family: Georgia, serif;
+  font-size: 14px;
+  line-height: 1;
+}
+
+.music-toggle.is-playing .music-disc {
+  animation: music-turn 7s linear infinite;
+}
+
+.music-toggle.is-playing::after {
+  animation: music-pulse 2.4s ease-out infinite;
+}
+
+.invite-stage[data-page="content"] .music-toggle {
+  border-color: rgba(159, 36, 48, 0.2);
+  background: rgba(255, 250, 240, 0.86);
+  color: var(--red);
+}
+
+@keyframes music-turn {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes music-pulse {
+  0% { transform: scale(0.9); opacity: 0; }
+  24% { opacity: 0.55; }
+  100% { transform: scale(1.28); opacity: 0; }
+}
+
 .invite-page {
   position: absolute;
   inset: 0;
@@ -1141,6 +1221,11 @@ button {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .music-toggle.is-playing .music-disc,
+  .music-toggle.is-playing::after {
+    animation: none !important;
+  }
+
   *,
   *::before,
   *::after {

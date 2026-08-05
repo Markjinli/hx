@@ -1,5 +1,3 @@
-export const SHARE_ROUTE_VERSION = "v2";
-
 export const SHARE_ICONS = Object.freeze([
   Object.freeze({
     id: "double-happiness",
@@ -53,6 +51,27 @@ export const SHARE_COPIES = Object.freeze([
 export const DEFAULT_SHARE_ICON_ID = SHARE_ICONS[0].id;
 export const DEFAULT_SHARE_COPY_ID = SHARE_COPIES[0].id;
 
+// Keep this mapping explicit so existing shared URLs never change if the
+// presentation options are reordered later.
+export const SHARE_ROUTE_LETTERS = Object.freeze({
+  "double-happiness:classic": "a",
+  "double-happiness:witness": "b",
+  "double-happiness:two-families": "c",
+  "double-happiness:good-day": "d",
+  "sweet-bears:classic": "e",
+  "sweet-bears:witness": "f",
+  "sweet-bears:two-families": "g",
+  "sweet-bears:good-day": "h",
+  "love-birds:classic": "i",
+  "love-birds:witness": "j",
+  "love-birds:two-families": "k",
+  "love-birds:good-day": "l",
+  "happy-envelope:classic": "m",
+  "happy-envelope:witness": "n",
+  "happy-envelope:two-families": "o",
+  "happy-envelope:good-day": "p",
+});
+
 export function shareIconById(id) {
   return SHARE_ICONS.find((option) => option.id === id) ?? SHARE_ICONS[0];
 }
@@ -64,5 +83,5 @@ export function shareCopyById(id) {
 export function shareRoutePath(iconId, copyId) {
   const icon = shareIconById(iconId);
   const copy = shareCopyById(copyId);
-  return `share/${SHARE_ROUTE_VERSION}/${icon.id}/${copy.id}/`;
+  return `${SHARE_ROUTE_LETTERS[`${icon.id}:${copy.id}`]}/`;
 }
