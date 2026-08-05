@@ -67,9 +67,11 @@
 - Node语法检查：通过。
 - 自动测试：12/12 通过，包含中文/emoji往返、CRC标准向量、日期时间、截断/改单字符/未知版本、XSS文本、个人信息留在 Fragment、4 张图片规格和 16 个静态入口。
 - `npm run build`：成功生成 16 个静态入口。
-- 本地 HTTP：首页、嵌套分享入口、CSS、三个 JS 与 4 张图标均需保持 200。
-- GitHub Pages首次构建状态：`built`。
-- 上述 GitHub Pages状态与线上 200 记录属于 2026-08-04 旧版本；本次改动推送后必须重新确认最新 Pages build 和至少一个组合入口。
+- 本地 HTTP：首页、嵌套分享入口、CSS、`app.js`、`share-options.js` 与图标均为 200。
+- 功能提交：`59f04d9`（`feat: add selectable WeChat share cards`）。
+- GitHub Pages 对该提交的构建状态：`built`，完成于 2026-08-05 09:16:38 UTC，无构建错误。
+- 线上首页、两个不同组合入口、图标、`app.js` 与 `share-options.js` 均为 200。
+- 线上 `sweet-bears/witness` 入口已核对：路由数据、所选文案、对应 `og:image` 与四层相对 CSS路径均存在。
 
 ## 尚需真机验收
 
